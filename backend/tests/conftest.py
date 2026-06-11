@@ -3,11 +3,16 @@ import os
 import time
 import pytest
 import requests
+from pathlib import Path
 from pymongo import MongoClient
+from dotenv import load_dotenv
+
+# Load backend/.env so MONGO_URL points to Atlas matching the running backend
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://career-pilot-14.preview.emergentagent.com").rstrip("/")
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-DB_NAME = os.environ.get("DB_NAME", "test_database")
+MONGO_URL = os.environ["MONGO_URL"]
+DB_NAME = os.environ.get("DB_NAME", "careerpilot")
 
 
 @pytest.fixture(scope="session")

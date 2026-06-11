@@ -1,11 +1,73 @@
 import React, { useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
+import { api, API } from "@/lib/api";
 import { toast } from "sonner";
 import Editor from "@monaco-editor/react";
 import {
   Microphone, MicrophoneSlash, PaperPlaneTilt, Trophy, SpeakerHigh,
-  ArrowsClockwise, Sparkle, Code, User, Stop,
+  ArrowsClockwise, Sparkle, Code, User, Stop, FilePdf, VideoCamera,
 } from "@phosphor-icons/react";
+
+/* ---------- Webcam emotion capture (face-api.js via CDN) ---------- */
+const FACE_API_CDN = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js";
+const FACE_MODELS = "https://justadudewhohacks.github.io/face-api.js/models";
+
+const ensureFaceApi = async () => {
+  if (window.faceapi) return window.faceapi;
+  await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = FACE_API_CDN;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  await window.faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODELS);
+  await window.faceapi.nets.faceExpressionNet.loadFromUri(FACE_MODELS);
+  return window.faceapi;
+};
+
+const useWebcamEmotion = (enabled, onEmotions) => {
+  const videoRef = useRef(null);
+  const intervalRef = useRef(null);
+  const streamRef = useRef(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const fa = await ensureFaceApi();
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+        intervalRef.current = setInterval(async () => {
+          if (!videoRef.current) return;
+          try {
+            const det = await fa.detectSingleFace(
+              videoRef.current,
+              new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+            ).withFaceExpressions();
+            if (det?.expressions) onEmotions(det.expressions);
+          } catch {}
+        }, 1200);
+      } catch (e) { console.warn("webcam emotion init failed", e); }
+    })();
+    return () => {
+      cancelled = true;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+    };
+  }, [enabled]); // eslint-disable-line
+
+  return videoRef;
+};
 
 /* ---------- helpers ---------- */
 const tryBackendTTS = async (text, voice) => {
@@ -178,12 +240,24 @@ const LiveScreen = ({ doc, setDoc }) => {
   const [showCode, setShowCode] = useState(doc.interview_type === "coding");
   const [code, setCode] = useState("# write your solution here\n");
   const [language, setLanguage] = useState("python");
+  const [webcamOn, setWebcamOn] = useState(false);
+  const [emotions, setEmotions] = useState(null);
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
   const lastSpokenRef = useRef(null);
 
   const turns = doc.turns || [];
   const currentTurn = turns[turns.length - 1];
+
+  const videoRef = useWebcamEmotion(webcamOn, (ex) => {
+    setEmotions(ex);
+    // batch-send every snapshot
+    api.post("/voice-interview/emotion", {
+      interview_id: doc.interview_id,
+      turn_index: (turns.length || 1) - 1,
+      emotions: ex,
+    }).catch(() => {});
+  });
 
   const speak = async (text) => {
     if (!text || lastSpokenRef.current === text) return;
@@ -263,11 +337,31 @@ const LiveScreen = ({ doc, setDoc }) => {
             <div className="overline mt-1">{doc.interview_type}</div>
           </div>
         </div>
-        <div className="flex flex-col items-end">
+        <div className="flex flex-col items-end gap-3">
           <Waveform active={aiSpeaking || recording} />
-          <div className="overline mt-3">
+          <div className="overline">
             {aiSpeaking ? "INTERVIEWER SPEAKING" : recording ? "LISTENING" : "READY"}
           </div>
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => setWebcamOn((v) => !v)}
+              className={`px-3 py-1.5 text-xs border ${webcamOn ? "border-[var(--accent)] text-accent bg-elevated" : "border-default text-secondary"}`}
+              data-testid="vi-webcam-toggle"
+            >
+              <VideoCamera size={12} className="inline mr-1" />
+              {webcamOn ? "Webcam ON" : "Enable webcam"}
+            </button>
+          </div>
+          {webcamOn && (
+            <div className="relative">
+              <video ref={videoRef} muted playsInline className="w-32 h-24 bg-elevated border border-default object-cover" />
+              {emotions && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5 text-[9px] font-mono text-accent">
+                  {Object.entries(emotions).sort((a,b)=>b[1]-a[1])[0][0]}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -360,13 +454,27 @@ const LiveScreen = ({ doc, setDoc }) => {
       )}
 
       {/* Report */}
-      {doc.report && <Report report={doc.report} onReset={() => setDoc(null)} />}
+      {doc.report && <Report report={doc.report} interviewId={doc.interview_id} onReset={() => setDoc(null)} />}
     </div>
   );
 };
 
 /* ---------- Final report ---------- */
-const Report = ({ report, onReset }) => {
+const Report = ({ report, interviewId, onReset }) => {
+  const downloadPdf = async () => {
+    try {
+      const res = await fetch(`${API}/voice-interview/${interviewId}/pdf`, {
+        method: "GET", credentials: "include",
+      });
+      if (!res.ok) throw new Error("pdf failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `CareerPilot_Report.pdf`; a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Report downloaded");
+    } catch { toast.error("PDF download failed"); }
+  };
   const scores = [
     ["TECHNICAL", report.technical_score],
     ["COMMUNICATION", report.communication_score],
@@ -419,9 +527,14 @@ const Report = ({ report, onReset }) => {
         </div>
       </div>
       <p className="text-secondary text-sm border-t border-default pt-6">{report.summary}</p>
-      <button onClick={onReset} className="btn-yellow" data-testid="vi-new-button">
-        <ArrowsClockwise size={16} weight="bold" /> New interview
-      </button>
+      <div className="flex gap-3 flex-wrap">
+        <button onClick={onReset} className="btn-yellow" data-testid="vi-new-button">
+          <ArrowsClockwise size={16} weight="bold" /> New interview
+        </button>
+        <button onClick={downloadPdf} className="btn-ghost" data-testid="vi-pdf-button">
+          <FilePdf size={16} weight="duotone" /> Download PDF report
+        </button>
+      </div>
     </div>
   );
 };

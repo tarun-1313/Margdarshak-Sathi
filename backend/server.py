@@ -614,10 +614,30 @@ async def chat_stream(body: ChatIn, user: dict = Depends(get_current_user)):
         "career_goals": user.get("career_goals"),
         "education": user.get("education"),
     }
+
+    # Qdrant semantic recall — pull top-K relevant past exchanges
+    recall_lines = []
+    try:
+        hits = qdrant.query(
+            collection_name=QDRANT_COLLECTION,
+            query_text=body.message,
+            limit=5,
+            query_filter=Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user["user_id"]))]),
+        )
+        for h in hits or []:
+            md = (h.metadata or {})
+            if md.get("role") and md.get("content"):
+                recall_lines.append(f"[{md['role']}] {md['content'][:240]}")
+    except Exception as e:
+        log.warning("Qdrant query failed: %s", e)
+
+    memory_block = ("\n".join(recall_lines[:5])) or "(no relevant past memory)"
+
     sys = (
         "You are CareerPilot AI, a friendly expert career mentor. "
         "Give concise, actionable, modern advice. Use bullet points where useful.\n"
-        f"User context: {json.dumps(profile_ctx)}"
+        f"User context: {json.dumps(profile_ctx)}\n"
+        f"Relevant past conversation memory:\n{memory_block}"
     )
     chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=sid, system_message=sys).with_model(*GEMINI_MODEL)
 
@@ -625,6 +645,15 @@ async def chat_stream(body: ChatIn, user: dict = Depends(get_current_user)):
         "user_id": user["user_id"], "session_id": sid,
         "role": "user", "content": body.message, "ts": now_utc().isoformat(),
     })
+    # index user msg in Qdrant
+    try:
+        qdrant.add(
+            collection_name=QDRANT_COLLECTION,
+            documents=[body.message],
+            metadata=[{"user_id": user["user_id"], "role": "user", "content": body.message, "ts": now_utc().isoformat()}],
+        )
+    except Exception as e:
+        log.warning("Qdrant add user failed: %s", e)
 
     async def gen():
         full = []
@@ -637,10 +666,20 @@ async def chat_stream(body: ChatIn, user: dict = Depends(get_current_user)):
                     break
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        assistant_text = "".join(full)
         await db.chat_messages.insert_one({
             "user_id": user["user_id"], "session_id": sid,
-            "role": "assistant", "content": "".join(full), "ts": now_utc().isoformat(),
+            "role": "assistant", "content": assistant_text, "ts": now_utc().isoformat(),
         })
+        try:
+            if assistant_text:
+                qdrant.add(
+                    collection_name=QDRANT_COLLECTION,
+                    documents=[assistant_text],
+                    metadata=[{"user_id": user["user_id"], "role": "assistant", "content": assistant_text, "ts": now_utc().isoformat()}],
+                )
+        except Exception as e:
+            log.warning("Qdrant add asst failed: %s", e)
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(
@@ -769,6 +808,31 @@ async def root():
 import base64
 from elevenlabs.client import ElevenLabs
 from elevenlabs import VoiceSettings
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from fastapi import WebSocket, WebSocketDisconnect
+import websockets as ws_client
+from reportlab.lib.pagesizes import LETTER
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
+
+# Qdrant in-process vector store with fastembed (auto-embedding)
+qdrant = QdrantClient(":memory:")
+QDRANT_COLLECTION = "chat_memory"
+try:
+    # use fastembed default model (BAAI/bge-small-en-v1.5 → 384 dims)
+    qdrant.set_model("BAAI/bge-small-en-v1.5")
+    if not qdrant.collection_exists(QDRANT_COLLECTION):
+        qdrant.create_collection(
+            collection_name=QDRANT_COLLECTION,
+            vectors_config=qdrant.get_fastembed_vector_params(),
+        )
+    log.info("Qdrant initialized")
+except Exception as e:
+    log.warning("Qdrant init failed: %s", e)
 
 # ElevenLabs client (sync — wrap with run_in_executor where needed)
 el_client = ElevenLabs(api_key=ELEVENLABS_API_KEY) if ELEVENLABS_API_KEY else None
@@ -1265,6 +1329,188 @@ async def get_public_profile(slug: str):
     careers = await db.career_recommendations.find({"user_id": p["user_id"]}, {"_id": 0}).limit(3).to_list(3)
     out["top_careers"] = [{"name": c.get("name"), "match": c.get("match_score")} for c in careers]
     return out
+
+
+# ---------- Webcam Emotion summary ----------
+class EmotionFrame(BaseModel):
+    interview_id: str
+    turn_index: int
+    emotions: Dict[str, float]  # {happy: 0.4, neutral: 0.5, sad: 0.05, ...}
+
+
+@api.post("/voice-interview/emotion")
+async def vi_emotion(body: EmotionFrame, user: dict = Depends(get_current_user)):
+    """Browser sends batched face-api.js emotion summaries. We compute aggregates per turn."""
+    await db.voice_interviews.update_one(
+        {"interview_id": body.interview_id, "user_id": user["user_id"]},
+        {"$push": {"emotion_log": {
+            "turn_index": body.turn_index,
+            "emotions": body.emotions,
+            "ts": now_utc().isoformat(),
+        }}},
+    )
+    return {"ok": True}
+
+
+# ---------- PDF export for voice interview report ----------
+@api.get("/voice-interview/{interview_id}/pdf")
+async def vi_pdf(interview_id: str, user: dict = Depends(get_current_user)):
+    doc = await db.voice_interviews.find_one(
+        {"interview_id": interview_id, "user_id": user["user_id"]}, {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(404, "interview not found")
+    if not doc.get("report"):
+        raise HTTPException(400, "interview not yet complete")
+
+    report = doc["report"]
+    buf = io.BytesIO()
+    pdf = SimpleDocTemplate(buf, pagesize=LETTER, leftMargin=0.7*inch, rightMargin=0.7*inch,
+                            topMargin=0.7*inch, bottomMargin=0.7*inch)
+    styles = getSampleStyleSheet()
+    h_title = ParagraphStyle("HTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+                             fontSize=26, leading=30, alignment=TA_LEFT, textColor=colors.black)
+    h_section = ParagraphStyle("HSection", parent=styles["Heading2"], fontName="Helvetica-Bold",
+                               fontSize=11, leading=14, alignment=TA_LEFT,
+                               textColor=colors.HexColor("#71717a"), spaceBefore=18, spaceAfter=8)
+    body_st = ParagraphStyle("Body", parent=styles["Normal"], fontSize=10.5, leading=15)
+    mono_st = ParagraphStyle("Mono", parent=styles["Normal"], fontName="Courier",
+                             fontSize=9, textColor=colors.HexColor("#71717a"))
+
+    story = []
+    story.append(Paragraph("CareerPilot AI · Interview Report", body_st))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(f"{doc.get('role','—')}", h_title))
+    story.append(Paragraph(
+        f"{doc.get('interview_type','').upper()} · {doc.get('difficulty','').upper()} · "
+        f"{(doc.get('personality') or '').replace('_',' ').upper()} · "
+        f"{doc.get('created_at','')[:10]}", mono_st,
+    ))
+    story.append(Spacer(1, 10))
+
+    # Overall
+    story.append(Paragraph(f"OVERALL SCORE: <b>{report.get('overall','—')}/100</b>", body_st))
+
+    # Score table
+    story.append(Paragraph("SCORE BREAKDOWN", h_section))
+    rows = [["Metric", "Score"]]
+    for k, label in [("technical_score","Technical"),("communication_score","Communication"),
+                     ("confidence_score","Confidence"),("problem_solving_score","Problem-solving"),
+                     ("clarity_score","Clarity")]:
+        v = report.get(k)
+        rows.append([label, f"{v}/100" if v is not None else "—"])
+    t = Table(rows, hAlign="LEFT", colWidths=[3*inch, 1.2*inch])
+    t.setStyle(TableStyle([
+        ("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),
+        ("FONTSIZE",(0,0),(-1,-1),10),
+        ("BACKGROUND",(0,0),(-1,0),colors.HexColor("#1e1e1e")),
+        ("TEXTCOLOR",(0,0),(-1,0),colors.white),
+        ("BACKGROUND",(0,1),(-1,-1),colors.HexColor("#f4f4f5")),
+        ("GRID",(0,0),(-1,-1),0.5,colors.HexColor("#27272a")),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.HexColor("#fafafa"), colors.white]),
+        ("LEFTPADDING",(0,0),(-1,-1),10),
+        ("RIGHTPADDING",(0,0),(-1,-1),10),
+        ("TOPPADDING",(0,0),(-1,-1),6),
+        ("BOTTOMPADDING",(0,0),(-1,-1),6),
+    ]))
+    story.append(t)
+
+    for key, label in [("strengths","STRENGTHS"),("improvements","IMPROVEMENTS"),
+                       ("recommended_topics","RECOMMENDED TOPICS"),("suggested_projects","SUGGESTED PROJECTS")]:
+        items = report.get(key) or []
+        if items:
+            story.append(Paragraph(label, h_section))
+            for it in items:
+                story.append(Paragraph(f"• {it}", body_st))
+
+    if report.get("summary"):
+        story.append(Paragraph("SUMMARY", h_section))
+        story.append(Paragraph(report["summary"], body_st))
+
+    # Q&A
+    story.append(PageBreak())
+    story.append(Paragraph("FULL TRANSCRIPT", h_section))
+    for i, t_ in enumerate(doc.get("turns", []), 1):
+        story.append(Paragraph(f"<b>Q{i}.</b> {t_.get('q','')}", body_st))
+        if t_.get("a"):
+            story.append(Paragraph(f"<i>You:</i> {t_['a']}", body_st))
+        story.append(Spacer(1, 8))
+
+    pdf.build(story)
+    buf.seek(0)
+    fname = f"CareerPilot_Interview_{interview_id}.pdf"
+    return StreamingResponse(
+        buf, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+# ---------- Deepgram WebSocket relay (real-time partial transcripts) ----------
+@app.websocket("/api/voice/stt-ws")
+async def stt_websocket(websocket: WebSocket, token: str = ""):
+    """Relay browser audio chunks to Deepgram's WS API and forward transcripts back."""
+    await websocket.accept()
+    # auth
+    sess = await db.user_sessions.find_one({"session_token": token}) if token else None
+    if not sess:
+        await websocket.send_json({"type": "error", "message": "auth required"})
+        await websocket.close(code=4401)
+        return
+    if not DEEPGRAM_API_KEY:
+        await websocket.send_json({"type": "error", "message": "deepgram not configured"})
+        await websocket.close()
+        return
+
+    dg_url = (
+        "wss://api.deepgram.com/v1/listen?"
+        "model=nova-3&language=en&punctuate=true&smart_format=true&interim_results=true&"
+        "encoding=opus"
+    )
+    headers = [("Authorization", f"Token {DEEPGRAM_API_KEY}")]
+    try:
+        async with ws_client.connect(dg_url, additional_headers=headers, max_size=None) as dg:
+            async def from_browser():
+                try:
+                    while True:
+                        msg = await websocket.receive()
+                        if msg.get("type") == "websocket.disconnect":
+                            break
+                        if msg.get("bytes") is not None:
+                            await dg.send(msg["bytes"])
+                        elif msg.get("text") is not None:
+                            if msg["text"] == "stop":
+                                await dg.send(json.dumps({"type": "CloseStream"}))
+                                break
+                except WebSocketDisconnect:
+                    pass
+
+            async def from_deepgram():
+                try:
+                    async for raw in dg:
+                        try:
+                            data = json.loads(raw) if isinstance(raw, (str, bytes)) else {}
+                        except Exception:
+                            continue
+                        alt = (data.get("channel", {}).get("alternatives", [{}]) or [{}])[0]
+                        text = alt.get("transcript", "")
+                        if text:
+                            await websocket.send_json({
+                                "type": "transcript",
+                                "text": text,
+                                "is_final": bool(data.get("is_final")),
+                                "speech_final": bool(data.get("speech_final")),
+                            })
+                except Exception as e:
+                    log.warning("dg recv error: %s", e)
+
+            await asyncio.gather(from_browser(), from_deepgram())
+    except Exception as e:
+        log.warning("stt-ws error: %s", e)
+        try: await websocket.send_json({"type": "error", "message": str(e)[:200]})
+        except Exception: pass
+    finally:
+        try: await websocket.close()
+        except Exception: pass
 
 
 app.include_router(api)
