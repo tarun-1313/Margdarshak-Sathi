@@ -615,21 +615,15 @@ async def chat_stream(body: ChatIn, user: dict = Depends(get_current_user)):
         "education": user.get("education"),
     }
 
-    # Qdrant semantic recall — pull top-K relevant past exchanges
+    # Persistent semantic recall from MongoDB Atlas
     recall_lines = []
     try:
-        hits = qdrant.query(
-            collection_name=QDRANT_COLLECTION,
-            query_text=body.message,
-            limit=5,
-            query_filter=Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user["user_id"]))]),
-        )
-        for h in hits or []:
-            md = (h.metadata or {})
-            if md.get("role") and md.get("content"):
-                recall_lines.append(f"[{md['role']}] {md['content'][:240]}")
+        hits = await memory_search(user["user_id"], body.message, k=5)
+        for h in hits:
+            if h.get("role") and h.get("content"):
+                recall_lines.append(f"[{h['role']}] {h['content'][:240]}")
     except Exception as e:
-        log.warning("Qdrant query failed: %s", e)
+        log.warning("memory search err: %s", e)
 
     memory_block = ("\n".join(recall_lines[:5])) or "(no relevant past memory)"
 
@@ -645,15 +639,8 @@ async def chat_stream(body: ChatIn, user: dict = Depends(get_current_user)):
         "user_id": user["user_id"], "session_id": sid,
         "role": "user", "content": body.message, "ts": now_utc().isoformat(),
     })
-    # index user msg in Qdrant
-    try:
-        qdrant.add(
-            collection_name=QDRANT_COLLECTION,
-            documents=[body.message],
-            metadata=[{"user_id": user["user_id"], "role": "user", "content": body.message, "ts": now_utc().isoformat()}],
-        )
-    except Exception as e:
-        log.warning("Qdrant add user failed: %s", e)
+    # persist to Atlas-backed vector memory
+    await memory_store(user["user_id"], "user", body.message)
 
     async def gen():
         full = []
@@ -671,15 +658,8 @@ async def chat_stream(body: ChatIn, user: dict = Depends(get_current_user)):
             "user_id": user["user_id"], "session_id": sid,
             "role": "assistant", "content": assistant_text, "ts": now_utc().isoformat(),
         })
-        try:
-            if assistant_text:
-                qdrant.add(
-                    collection_name=QDRANT_COLLECTION,
-                    documents=[assistant_text],
-                    metadata=[{"user_id": user["user_id"], "role": "assistant", "content": assistant_text, "ts": now_utc().isoformat()}],
-                )
-        except Exception as e:
-            log.warning("Qdrant add asst failed: %s", e)
+        if assistant_text:
+            await memory_store(user["user_id"], "assistant", assistant_text)
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(
@@ -806,10 +786,10 @@ async def root():
 
 
 import base64
+import numpy as np
+from fastembed import TextEmbedding
 from elevenlabs.client import ElevenLabs
 from elevenlabs import VoiceSettings
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from fastapi import WebSocket, WebSocketDisconnect
 import websockets as ws_client
 from reportlab.lib.pagesizes import LETTER
@@ -819,20 +799,53 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
-# Qdrant in-process vector store with fastembed (auto-embedding)
-qdrant = QdrantClient(":memory:")
-QDRANT_COLLECTION = "chat_memory"
-try:
-    # use fastembed default model (BAAI/bge-small-en-v1.5 → 384 dims)
-    qdrant.set_model("BAAI/bge-small-en-v1.5")
-    if not qdrant.collection_exists(QDRANT_COLLECTION):
-        qdrant.create_collection(
-            collection_name=QDRANT_COLLECTION,
-            vectors_config=qdrant.get_fastembed_vector_params(),
-        )
-    log.info("Qdrant initialized")
-except Exception as e:
-    log.warning("Qdrant init failed: %s", e)
+# Embedding model for chat memory — embeddings persisted in MongoDB Atlas (no local vector store)
+_embedder: Optional[TextEmbedding] = None
+def get_embedder() -> TextEmbedding:
+    global _embedder
+    if _embedder is None:
+        _embedder = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        log.info("fastembed loaded")
+    return _embedder
+
+
+async def embed_text(text: str) -> List[float]:
+    def _embed():
+        vecs = list(get_embedder().embed([text]))
+        return vecs[0].tolist() if vecs else []
+    return await asyncio.to_thread(_embed)
+
+
+def cosine(a: List[float], b: List[float]) -> float:
+    if not a or not b: return 0.0
+    av, bv = np.array(a, dtype=np.float32), np.array(b, dtype=np.float32)
+    denom = float(np.linalg.norm(av) * np.linalg.norm(bv))
+    return float(av @ bv / denom) if denom else 0.0
+
+
+async def memory_search(user_id: str, query: str, k: int = 5) -> List[dict]:
+    """Persistent semantic search over MongoDB Atlas chat_memory collection."""
+    try:
+        qv = await embed_text(query)
+        docs = await db.chat_memory.find({"user_id": user_id}, {"_id": 0}).to_list(500)
+        scored = [(cosine(qv, d.get("embedding") or []), d) for d in docs]
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [d for _, d in scored[:k]]
+    except Exception as e:
+        log.warning("memory_search failed: %s", e)
+        return []
+
+
+async def memory_store(user_id: str, role: str, content: str) -> None:
+    try:
+        vec = await embed_text(content)
+        await db.chat_memory.insert_one({
+            "user_id": user_id, "role": role, "content": content,
+            "embedding": vec, "ts": now_utc().isoformat(),
+        })
+    except Exception as e:
+        log.warning("memory_store failed: %s", e)
+
 
 # ElevenLabs client (sync — wrap with run_in_executor where needed)
 el_client = ElevenLabs(api_key=ELEVENLABS_API_KEY) if ELEVENLABS_API_KEY else None
@@ -1521,6 +1534,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup():
+    # Indexes for performance — all data lives in MongoDB Atlas
+    try:
+        await db.users.create_index("user_id", unique=True)
+        await db.users.create_index("email", unique=True)
+        await db.user_sessions.create_index("session_token", unique=True)
+        await db.user_sessions.create_index("user_id")
+        await db.resumes.create_index([("user_id", 1), ("created_at", -1)])
+        await db.career_recommendations.create_index("user_id")
+        await db.skill_gaps.create_index([("user_id", 1), ("target_role", 1)])
+        await db.roadmaps.create_index([("user_id", 1), ("created_at", -1)])
+        await db.voice_interviews.create_index([("user_id", 1), ("created_at", -1)])
+        await db.interviews.create_index([("user_id", 1), ("created_at", -1)])
+        await db.chat_messages.create_index([("user_id", 1), ("ts", 1)])
+        await db.chat_memory.create_index("user_id")
+        await db.portfolios.create_index("user_id", unique=True)
+        await db.career_twin.create_index([("user_id", 1), ("week_of", -1)])
+        await db.public_profiles.create_index("slug", unique=True)
+        log.info("Mongo indexes ensured")
+    except Exception as e:
+        log.warning("index init: %s", e)
 
 
 @app.on_event("shutdown")
