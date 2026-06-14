@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getTrends, predictSalary } from "@/lib/api";
-import { TrendUp, CurrencyInr } from "@phosphor-icons/react";
+import { TrendUp } from "@phosphor-icons/react";
+import { IndianRupee as CurrencyInr } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell,
 } from "recharts";

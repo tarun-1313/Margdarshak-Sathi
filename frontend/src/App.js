@@ -27,16 +27,14 @@ import Trends from "@/pages/Trends";
 
 function AppRouter() {
   const location = useLocation();
-  // CRITICAL: detect OAuth callback synchronously, before ProtectedRoute checks
-  if (location.hash?.includes("session_id=")) {
-    return <AuthCallback />;
-  }
 
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/auth/google/callback" element={<AuthCallback />} />
+      <Route path="/auth/github/callback" element={<AuthCallback />} />
       <Route path="/u/:slug" element={<PublicProfile />} />
 
       <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>

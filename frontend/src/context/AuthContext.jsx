@@ -19,14 +19,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // CRITICAL: skip /me check if returning from OAuth callback — AuthCallback handles it.
-    if (window.location.hash?.includes("session_id=")) {
-      setLoading(false);
-      return;
-    }
     // Skip auth probe on public routes to avoid benign 401 in console.
     const path = window.location.pathname;
-    if (path === "/" || path.startsWith("/u/")) {
+    if (path === "/" || path.startsWith("/u/") || path.startsWith("/auth/")) {
       setLoading(false);
       return;
     }

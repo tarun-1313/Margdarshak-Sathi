@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { skillGap } from "@/lib/api";
 import { toast } from "sonner";
-import { Target, Lightning } from "@phosphor-icons/react";
+import { Target } from "@phosphor-icons/react";
+import { Zap as Lightning } from "lucide-react";
 
 const priorityColor = { high: "border-red-500 text-red-400", medium: "border-orange-500 text-orange-400", low: "border-zinc-500 text-zinc-400" };
 

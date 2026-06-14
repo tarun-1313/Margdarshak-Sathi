@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Robot, Sparkle, Lightning, Quotes } from "@phosphor-icons/react";
+import { Robot, Sparkle } from "@phosphor-icons/react";
+import { Zap as Lightning, Quote as Quotes } from "lucide-react";
 import { toast } from "sonner";
 
 export default function CareerTwin() {

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { recommendCareers, listCareers } from "@/lib/api";
 import { toast } from "sonner";
-import { Sparkle, TrendUp, CurrencyInr, Lightning } from "@phosphor-icons/react";
+import { Sparkle, TrendUp } from "@phosphor-icons/react";
+import { IndianRupee as CurrencyInr, Zap as Lightning } from "lucide-react";
 
 export default function Careers() {
   const [careers, setCareers] = useState([]);
