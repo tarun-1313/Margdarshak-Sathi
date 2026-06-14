@@ -99,3 +99,5 @@ openai==1.35.13
 tenacity==8.4.2
 python-dotenv==1.0.1
 
+fastembed==0.3.6
+
