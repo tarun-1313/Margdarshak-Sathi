@@ -28,7 +28,7 @@ from jose import JWTError, jwt
 from gemini_client import gemini_generate_text, gemini_generate_json, gemini_stream_text, GEMINI_MODEL
 
 # Third-party
-from fastembed import TextEmbedding
+
 from elevenlabs.client import ElevenLabs
 from elevenlabs import VoiceSettings
 import websockets as ws_client
