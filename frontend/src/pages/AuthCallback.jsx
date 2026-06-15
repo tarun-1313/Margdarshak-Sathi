@@ -28,7 +28,7 @@ export default function AuthCallback() {
           endpoint = "/auth/github/callback";
         }
 
-        const res = await api.post(endpoint, null, { params: { code } });
+        const res = await api.get(endpoint, null, { params: { code } });
         setUser(res.data);
         navigate(res.data.onboarded ? "/dashboard" : "/profile", { replace: true });
       } catch (e) {
