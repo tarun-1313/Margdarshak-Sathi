@@ -383,17 +383,16 @@ def create_user():
     }
 
 async def set_auth_cookie(response: Response, session_token: str):
-    is_prod = os.environ.get("ENV") == "production"
     response.set_cookie(
         key="session_token",
         value=session_token,
         max_age=7 * 24 * 3600,
         httponly=True,
-        secure=is_prod,
-        samesite="lax" if not is_prod else "none",
+        secure=True,
+        samesite="none",
         path="/",
     )
-
+    
 @api.post("/auth/register")
 async def auth_register(body: RegisterIn, response: Response):
     """Register a new user with email/password."""
