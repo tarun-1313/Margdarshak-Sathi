@@ -76,6 +76,18 @@ log = logging.getLogger("careerpilot")
 # FastAPI
 app = FastAPI(title="CareerPilot AI")
 api = APIRouter(prefix="/api")
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "https://margdarshak-sathi.vercel.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
