@@ -6,7 +6,7 @@ import Editor from "@monaco-editor/react";
 import {
   Microphone, PaperPlaneTilt, Trophy, SpeakerHigh, ArrowsClockwise,
   Code, User, Stop, FilePdf, VideoCamera, VideoCameraSlash, CircleNotch,
-  Clock, Waveform, ChartBar, Sparkle, X,
+  Clock, ChartBar, Sparkle, X,
 } from "@phosphor-icons/react";
 
 /* ---------- Audio helpers ---------- */
@@ -352,7 +352,7 @@ const LiveScreen = ({ doc, setDoc }) => {
   const [livePartial, setLivePartial] = useState("");
   const sessionToken = (document.cookie.match(/session_token=([^;]+)/) || [])[1] || "";
   const lastSpokenRef = useRef(null);
-  const lastTurnRef = useRef(0);
+  
 
   const turns = doc.turns || [];
   const currentTurn = turns[turns.length - 1];
