@@ -187,10 +187,10 @@ export default function PublicProfile() {
                     <span className="text-sm font-medium">GitHub</span>
                   </a>
                 )}
-                <a href="#" className="flex items-center gap-2 px-4 py-2.5 border border-[rgba(255,255,255,0.08)] bg-white/5 hover:bg-white/10 transition-all rounded-sm">
+                <button className="flex items-center gap-2 px-4 py-2.5 border border-[rgba(255,255,255,0.08)] bg-white/5 hover:bg-white/10 transition-all rounded-sm">
                   <LinkedinLogo size={18} />
                   <span className="text-sm font-medium">LinkedIn</span>
-                </a>
+                </button>
                 <button className="flex items-center gap-2 px-4 py-2.5 bg-[#8B5CF6] text-white hover:bg-[#A78BFA] transition-all rounded-sm font-bold">
                   <DownloadSimple size={18} />
                   <span className="text-sm">Resume</span>
