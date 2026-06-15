@@ -244,7 +244,8 @@ async def _gemini_json(system: str, user_text: str) -> dict:
         return {}
 
 
-# ---------- Embedding helpers ----------
+
+
 # ---------- Embedding helpers ----------
 _embedder = None
 
@@ -253,9 +254,11 @@ def get_embedder():
 
     if _embedder is None:
         from fastembed import TextEmbedding
+
         _embedder = TextEmbedding(
             model_name="BAAI/bge-small-en-v1.5"
         )
+
         log.info("fastembed loaded")
 
     return _embedder
@@ -265,6 +268,7 @@ async def embed_text(text: str) -> List[float]:
     def _embed():
         vecs = list(get_embedder().embed([text]))
         return vecs[0].tolist() if vecs else []
+
     return await asyncio.to_thread(_embed)
 
 
