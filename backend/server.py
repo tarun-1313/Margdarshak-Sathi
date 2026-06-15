@@ -63,7 +63,7 @@ GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET")
 # Frontend URL for OAuth redirects
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000","https://margdarshak-sathi.vercel.app")
 
 # DB
 client = AsyncIOMotorClient(MONGO_URL)
@@ -82,8 +82,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://margdarshak-sathi.vercel.app",
-        "https://margdarshaksathiai.vercel.app"
+        "https://margdarshak-sathi.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -473,7 +472,7 @@ async def auth_google_login():
     return {"auth_url": auth_url}
 
 
-@api.post("/auth/google/callback")
+@api.get("/auth/google/callback")
 async def auth_google_callback(code: str, response: Response):
     """Exchange Google OAuth code for user info and login/register."""
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
@@ -565,7 +564,7 @@ async def auth_github_login():
     return {"auth_url": auth_url}
 
 
-@api.post("/auth/github/callback")
+@api.get("/auth/github/callback")
 async def auth_github_callback(code: str, response: Response):
     """Exchange GitHub OAuth code for user info and login/register."""
     if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
