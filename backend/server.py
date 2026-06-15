@@ -63,7 +63,10 @@ GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET")
 # Frontend URL for OAuth redirects
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000","https://margdarshak-sathi.vercel.app")
+FRONTEND_URL = os.environ.get(
+    "FRONTEND_URL",
+    "https://margdarshak-sathi.vercel.app"
+)
 
 # DB
 client = AsyncIOMotorClient(MONGO_URL)
