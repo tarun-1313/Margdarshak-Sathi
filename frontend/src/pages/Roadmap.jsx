@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { generateRoadmap, getRoadmap, toggleMilestone } from "@/lib/api";
 import { toast } from "sonner";
-import { Path, CheckCircle, Circle, Sparkle } from "@phosphor-icons/react";
+import { CheckCircle, Circle, Sparkle } from "@phosphor-icons/react";
 
 export default function Roadmap() {
   const [doc, setDoc] = useState(null);
