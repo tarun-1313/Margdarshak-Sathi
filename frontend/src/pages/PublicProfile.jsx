@@ -1,9 +1,36 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { api } from "@/lib/api";
-import { GithubLogo, ArrowUpRight, At, MapPin, Calendar, Code, Rocket, Sparkle, Cpu, Database, Globe, Monitor, Palette, Brain } from "@phosphor-icons/react";
-import { Linkedin, Download, TrendingUp, Medal, CircuitBoard as Circuitry, Trophy, Mail as EnvelopeSimple } from "lucide-react";
 import { motion } from "framer-motion";
+
+import { api } from "@/lib/api";
+
+import {
+  GithubLogo,
+  ArrowUpRight,
+  At,
+  MapPin,
+  Calendar,
+  Code,
+  Rocket,
+  Sparkle,
+  Cpu,
+  Database,
+  Globe,
+  Monitor,
+  Palette,
+  Brain,
+  LinkedinLogo,
+  DownloadSimple
+} from "@phosphor-icons/react";
+
+import {
+  TrendingUp,
+  Medal,
+  Trophy,
+  CircuitBoard as Circuitry,
+  Mail as EnvelopeSimple
+} from "lucide-react";
 
 const AnimatedCounter = ({ to, duration = 1000, suffix = "" }) => {
   const [count, setCount] = useState(0);
