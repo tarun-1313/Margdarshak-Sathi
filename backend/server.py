@@ -85,7 +85,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://margdarshak-sathi.vercel.app"
+        "https://margdarshak-sathi.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
