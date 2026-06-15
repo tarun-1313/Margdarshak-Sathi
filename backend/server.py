@@ -245,12 +245,19 @@ async def _gemini_json(system: str, user_text: str) -> dict:
 
 
 # ---------- Embedding helpers ----------
-_embedder: Optional[TextEmbedding] = None
-def get_embedder() -> TextEmbedding:
+# ---------- Embedding helpers ----------
+_embedder = None
+
+def get_embedder():
     global _embedder
+
     if _embedder is None:
-        _embedder = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        from fastembed import TextEmbedding
+        _embedder = TextEmbedding(
+            model_name="BAAI/bge-small-en-v1.5"
+        )
         log.info("fastembed loaded")
+
     return _embedder
 
 
