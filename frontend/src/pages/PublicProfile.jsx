@@ -26,9 +26,7 @@ import {
 
 import {
   TrendingUp,
-  Medal,
   Trophy,
-  CircuitBoard as Circuitry,
   Mail as EnvelopeSimple
 } from "lucide-react";
 
