@@ -475,7 +475,7 @@ async def auth_google_login():
     return {"auth_url": auth_url}
 
 
-@api.get("/auth/google/callback")
+@api.post("/auth/google/callback")
 async def auth_google_callback(code: str, response: Response):
     """Exchange Google OAuth code for user info and login/register."""
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
@@ -567,7 +567,7 @@ async def auth_github_login():
     return {"auth_url": auth_url}
 
 
-@api.get("/auth/github/callback")
+@api.post("/auth/github/callback")
 async def auth_github_callback(code: str, response: Response):
     """Exchange GitHub OAuth code for user info and login/register."""
     if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
