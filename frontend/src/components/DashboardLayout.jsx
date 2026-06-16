@@ -93,7 +93,7 @@ export default function DashboardLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070B14] text-[#F8FAFC] flex overflow-x-hidden">
+    <div className="min-h-screen w-screen overflow-x-hidden bg-[#070B14] text-[#F8FAFC] flex">
       {/* Mobile overlay */}
       <AnimatePresence>
         {open && (
@@ -102,7 +102,7 @@ export default function DashboardLayout() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 w-screen h-screen overflow-hidden bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           />
         )}
       </AnimatePresence>
@@ -117,12 +117,12 @@ export default function DashboardLayout() {
        className={`
        fixed lg:sticky top-0 left-0 h-screen z-50
        transition-all duration-500 ease-out
-       w-[85vw] max-w-[320px]
+       w-[280px] sm:w-[320px]
        ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
        ${isHovered ? "lg:w-72" : "lg:w-20"}
         `}
       >
-        <div className="h-full mx-4 my-4 rounded-2xl bg-gradient-to-b from-[#0F172A]/95 to-[#111827]/95 backdrop-blur-xl border border-[rgba(255,255,255,0.08)] shadow-2xl shadow-[#8B5CF6]/5 overflow-hidden flex flex-col">
+        <div className="h-full rounded-2xl bg-gradient-to-b from-[#0F172A]/95 to-[#111827]/95 backdrop-blur-xl border border-[rgba(255,255,255,0.08)] shadow-2xl shadow-[#8B5CF6]/5 overflow-hidden flex flex-col">
           {/* Header */}
           <div className="p-5 border-b border-[rgba(255,255,255,0.06)]">
             <Link to="/dashboard" className="flex items-center gap-3" data-testid="sidebar-logo">
