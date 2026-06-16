@@ -34,7 +34,7 @@ logger = logging.getLogger("margdarshak.gemini")
 # CONFIG
 # =========================================================
 
-GEMINI_MODEL = "gemini-1.5-flash"
+GEMINI_MODEL = "gemini-3.5-flash"
 
 GROK_MODEL = os.getenv(
     "GROK_MODEL",
