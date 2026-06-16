@@ -1930,14 +1930,20 @@ async def public_profile(slug: str):
     return profile
 
 # ---------- startup / shutdown / cors ----------
+
 app.include_router(api)
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=[
+        "https://margdarshak-sathi.vercel.app",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 @app.on_event("startup")
