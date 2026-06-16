@@ -93,7 +93,7 @@ export default function DashboardLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070B14] text-[#F8FAFC] flex">
+    <div className="min-h-screen bg-[#070B14] text-[#F8FAFC] flex overflow-x-hidden">
       {/* Mobile overlay */}
       <AnimatePresence>
         {open && (
@@ -114,9 +114,13 @@ export default function DashboardLayout() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`fixed lg:sticky top-0 left-0 h-screen z-50 transition-all duration-500 ease-out ${
-          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        } ${isHovered ? "lg:w-72" : "lg:w-20"}`}
+       className={`
+       fixed lg:sticky top-0 left-0 h-screen z-50
+       transition-all duration-500 ease-out
+       w-[85vw] max-w-[320px]
+       ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+       ${isHovered ? "lg:w-72" : "lg:w-20"}
+        `}
       >
         <div className="h-full mx-4 my-4 rounded-2xl bg-gradient-to-b from-[#0F172A]/95 to-[#111827]/95 backdrop-blur-xl border border-[rgba(255,255,255,0.08)] shadow-2xl shadow-[#8B5CF6]/5 overflow-hidden flex flex-col">
           {/* Header */}
