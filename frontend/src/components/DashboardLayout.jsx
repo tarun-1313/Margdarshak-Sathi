@@ -1,6 +1,8 @@
+
 import React, { useState } from "react";
 import { Link, NavLink, useNavigate, Outlet } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+
 import {
   House,
   User,
@@ -24,7 +26,8 @@ import {
 import { Zap } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
-// Navigation items
+/* ---------------- NAVIGATION ---------------- */
+
 const mainNav = [
   { to: "/dashboard", label: "Overview", icon: House, color: "purple" },
   { to: "/twin", label: "Career Twin", icon: Robot, color: "blue" },
@@ -47,38 +50,41 @@ const settingsNav = [
   { to: "/courses", label: "Courses", icon: GraduationCap, color: "orange" },
 ];
 
+/* ---------------- COLORS ---------------- */
+
 const getColorClasses = (color) => {
   const colors = {
     purple: {
       bg: "bg-[#8B5CF6]/20",
       text: "text-[#8B5CF6]",
       border: "border-[#8B5CF6]/30",
-      glow: "shadow-[#8B5CF6]/20",
     },
+
     blue: {
       bg: "bg-[#3B82F6]/20",
       text: "text-[#3B82F6]",
       border: "border-[#3B82F6]/30",
-      glow: "shadow-[#3B82F6]/20",
     },
+
     green: {
       bg: "bg-[#A3FF12]/20",
       text: "text-[#A3FF12]",
       border: "border-[#A3FF12]/30",
-      glow: "shadow-[#A3FF12]/20",
     },
+
     orange: {
       bg: "bg-[#F59E0B]/20",
       text: "text-[#F59E0B]",
       border: "border-[#F59E0B]/30",
-      glow: "shadow-[#F59E0B]/20",
     },
   };
 
   return colors[color] || colors.purple;
 };
 
-const NavSection = ({ title, items }) => (
+/* ---------------- NAV SECTION ---------------- */
+
+const NavSection = ({ title, items, closeSidebar }) => (
   <div className="mb-6">
     <div className="px-4 mb-2 text-[10px] font-mono uppercase tracking-widest text-[#64748B]">
       {title}
@@ -92,19 +98,16 @@ const NavSection = ({ title, items }) => (
           <NavLink
             key={to}
             to={to}
+            onClick={closeSidebar}
             className={({ isActive }) =>
-              `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-300 ${
+              `group flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-all duration-300 ${
                 isActive
-                  ? `${colors.bg} ${colors.text} border ${colors.border} shadow-lg ${colors.glow}`
-                  : "text-[#94A3B8] hover:bg-[#0F172A] hover:text-[#F8FAFC]"
+                  ? `${colors.bg} ${colors.text} border ${colors.border}`
+                  : "text-[#94A3B8] hover:bg-[#111827] hover:text-white"
               }`
             }
           >
-            <div
-              className={`p-1.5 rounded-lg transition-all duration-300`}
-            >
-              <Icon size={18} weight="duotone" />
-            </div>
+            <Icon size={18} weight="duotone" />
 
             <span className="font-medium">{label}</span>
           </NavLink>
@@ -113,6 +116,8 @@ const NavSection = ({ title, items }) => (
     </div>
   </div>
 );
+
+/* ---------------- MAIN COMPONENT ---------------- */
 
 export default function DashboardLayout() {
   const { user, signOut } = useAuth();
@@ -127,9 +132,10 @@ export default function DashboardLayout() {
   };
 
   return (
-    <div className="min-h-screen w-screen overflow-hidden bg-[#070B14] text-[#F8FAFC] lg:flex">
+    <div className="min-h-screen bg-[#070B14] text-[#F8FAFC] overflow-x-hidden lg:flex">
 
-      {/* Mobile Overlay */}
+      {/* ---------------- MOBILE OVERLAY ---------------- */}
+
       <AnimatePresence>
         {open && (
           <motion.div
@@ -137,130 +143,156 @@ export default function DashboardLayout() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden"
           />
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
-      <motion.aside
-        initial={{ x: -100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.4 }}
-        className={`
-          fixed lg:sticky top-0 left-0 z-50 h-screen
-          w-[85vw] max-w-[320px] lg:w-72
-          transition-transform duration-300 ease-out
-          ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-        `}
-      >
-        <div className="h-full rounded-r-2xl lg:rounded-2xl bg-gradient-to-b from-[#0F172A]/95 to-[#111827]/95 backdrop-blur-xl border-r lg:border border-[rgba(255,255,255,0.08)] shadow-2xl shadow-[#8B5CF6]/10 overflow-hidden flex flex-col">
+      {/* ---------------- SIDEBAR ---------------- */}
 
-          {/* Header */}
-          <div className="relative p-5 border-b border-[rgba(255,255,255,0.06)]">
-            <Link
-              to="/dashboard"
-              className="flex items-center gap-3"
-            >
-              <div className="relative">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#3B82F6] flex items-center justify-center shadow-lg shadow-[#8B5CF6]/30">
+      <AnimatePresence>
+        {(open || window.innerWidth >= 1024) && (
+          <motion.aside
+            initial={{ x: -320 }}
+            animate={{ x: 0 }}
+            exit={{ x: -320 }}
+            transition={{ duration: 0.25 }}
+            className={`
+              fixed top-0 left-0 z-50 h-screen
+              w-[280px]
+              bg-[#0B1120]
+              border-r border-white/10
+              flex flex-col
+              lg:translate-x-0
+            `}
+          >
+
+            {/* Header */}
+
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-3"
+              >
+
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#3B82F6] flex items-center justify-center">
                   <Sparkle
-                    size={20}
-                    className="text-white"
+                    size={18}
                     weight="fill"
+                    className="text-white"
                   />
                 </div>
 
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#A3FF12] border-2 border-[#0F172A]" />
-              </div>
+                <div>
+                  <div className="text-lg font-black leading-tight">
+                    Margdarshak
+                    <br />
+                    Sathi
+                  </div>
 
-              <div>
-                <div className="font-display text-lg font-black text-[#F8FAFC] leading-tight">
-                  Margdarshak
-                  <br />
-                  Sathi
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-[#8B5CF6]">
+                    AI Career OS
+                  </div>
                 </div>
+              </Link>
 
-                <div className="text-[10px] font-mono uppercase tracking-widest text-[#8B5CF6]">
-                  AI Career OS
-                </div>
-              </div>
-            </Link>
-
-            {/* Close Button */}
-            <button
-              className="lg:hidden absolute top-5 right-5 text-[#94A3B8] hover:text-white"
-              onClick={() => setOpen(false)}
-              aria-label="Close Sidebar"
-            >
-              <X size={24} />
-            </button>
-          </div>
-
-          {/* Navigation */}
-          <div className="flex-1 overflow-y-auto px-3 py-4">
-            <NavSection title="Main" items={mainNav} />
-            <NavSection title="Tools" items={toolsNav} />
-            <NavSection title="Settings" items={settingsNav} />
-          </div>
-
-          {/* User */}
-          <div className="p-4 border-t border-[rgba(255,255,255,0.06)]">
-            <div className="flex items-center gap-3">
-
-              {user?.picture ? (
-                <img
-                  src={user.picture}
-                  alt=""
-                  className="w-10 h-10 rounded-full ring-2 ring-[#8B5CF6]/30"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#8B5CF6]/20 to-[#3B82F6]/20 border border-[#8B5CF6]/30 flex items-center justify-center">
-                  <span className="font-mono text-sm font-bold text-[#8B5CF6]">
-                    {user?.name?.[0] || "U"}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold truncate">
-                  {user?.name}
-                </div>
-
-                <div className="text-xs text-[#64748B] truncate">
-                  {user?.email}
-                </div>
-              </div>
+              {/* CLOSE BUTTON */}
 
               <button
-                onClick={handleLogout}
-                className="p-2 rounded-lg text-[#64748B] hover:text-white hover:bg-[#8B5CF6]/10 transition-all"
+                className="lg:hidden text-[#94A3B8]"
+                onClick={() => setOpen(false)}
               >
-                <SignOut size={18} />
+                <X size={24} />
               </button>
             </div>
-          </div>
-        </div>
-      </motion.aside>
 
-      {/* Main Content */}
-      <div className="flex-1 min-w-0">
+            {/* NAVIGATION */}
 
-        {/* Header */}
-        <header className="sticky top-0 z-30 px-6 lg:px-10 py-4 flex items-center justify-between backdrop-blur-xl bg-[#070B14]/80 border-b border-[rgba(255,255,255,0.06)]">
+            <div className="flex-1 overflow-y-auto px-3 py-4">
+
+              <NavSection
+                title="Main"
+                items={mainNav}
+                closeSidebar={() => setOpen(false)}
+              />
+
+              <NavSection
+                title="Tools"
+                items={toolsNav}
+                closeSidebar={() => setOpen(false)}
+              />
+
+              <NavSection
+                title="Settings"
+                items={settingsNav}
+                closeSidebar={() => setOpen(false)}
+              />
+            </div>
+
+            {/* USER SECTION */}
+
+            <div className="p-4 border-t border-white/10">
+
+              <div className="flex items-center gap-3">
+
+                {user?.picture ? (
+                  <img
+                    src={user.picture}
+                    alt=""
+                    className="w-10 h-10 rounded-full"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center">
+                    <span className="text-sm font-bold">
+                      {user?.name?.[0] || "U"}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+
+                  <div className="text-sm font-semibold truncate">
+                    {user?.name}
+                  </div>
+
+                  <div className="text-xs text-[#64748B] truncate">
+                    {user?.email}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="p-2 rounded-lg hover:bg-white/5"
+                >
+                  <SignOut size={18} />
+                </button>
+              </div>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* ---------------- MAIN CONTENT ---------------- */}
+
+      <div className="flex-1 min-w-0 lg:ml-[280px]">
+
+        {/* HEADER */}
+
+        <header className="sticky top-0 z-30 px-6 lg:px-10 py-4 flex items-center justify-between backdrop-blur-xl bg-[#070B14]/80 border-b border-white/10">
 
           <div className="flex items-center gap-4">
 
-            {/* Open Sidebar */}
+            {/* OPEN MENU */}
+
             <button
-              className="lg:hidden p-2 rounded-lg text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[#0F172A] transition-all"
+              className="lg:hidden p-2 rounded-lg text-[#94A3B8] hover:text-white hover:bg-white/5"
               onClick={() => setOpen(true)}
-              aria-label="Open Sidebar"
             >
               <List size={22} />
             </button>
 
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0F172A] border border-[rgba(255,255,255,0.08)]">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111827] border border-white/10">
               <div className="w-2 h-2 rounded-full bg-[#A3FF12] animate-pulse" />
 
               <span className="text-xs font-mono text-[#94A3B8]">
@@ -275,34 +307,36 @@ export default function DashboardLayout() {
 
               <Link
                 to="/dashboard"
-                className="p-2 rounded-lg text-[#64748B] hover:text-white hover:bg-[#0F172A] transition-all"
+                className="p-2 rounded-lg text-[#64748B] hover:text-white hover:bg-white/5"
               >
                 <Sparkle size={20} />
               </Link>
 
               <Link
                 to="/resume"
-                className="p-2 rounded-lg text-[#64748B] hover:text-white hover:bg-[#0F172A] transition-all"
+                className="p-2 rounded-lg text-[#64748B] hover:text-white hover:bg-white/5"
               >
                 <Zap size={20} />
               </Link>
             </div>
 
-            <div className="h-6 w-px bg-[rgba(255,255,255,0.08)]" />
+            <div className="h-6 w-px bg-white/10" />
 
             <div className="flex items-center gap-3">
+
               <span className="hidden sm:block text-xs font-mono text-[#64748B]">
                 welcome back,
               </span>
 
-              <span className="text-sm font-semibold text-[#F8FAFC]">
+              <span className="text-sm font-semibold">
                 {user?.name?.split(" ")[0]}
               </span>
             </div>
           </div>
         </header>
 
-        {/* Main Content */}
+        {/* MAIN */}
+
         <main className="px-6 lg:px-10 py-8 overflow-x-hidden">
           <Outlet />
         </main>
@@ -310,4 +344,3 @@ export default function DashboardLayout() {
     </div>
   );
 }
-
