@@ -1,5 +1,5 @@
 
-# 🚀 CareerPilot AI — Intelligent Career Operating System
+# 🚀Margdarshak Sathi AI — Intelligent Career Operating System
 
 <div align="center">
 
