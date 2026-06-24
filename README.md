@@ -120,7 +120,7 @@ Integrated APIs:
 
 ## 🤖 Multi-Agent AI System
 
-CareerPilot AI uses a centralized AI orchestration system powered by LangGraph.
+Margdarshak Sathi AI uses a centralized AI orchestration system powered by LangGraph.
 
 ### AI Agents:
 
