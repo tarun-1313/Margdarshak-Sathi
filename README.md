@@ -15,7 +15,7 @@ Build your career with AI-driven guidance, intelligent roadmaps, mock interviews
 
 Margdarshak AI is a next-generation AI-powered career operating system designed to help users navigate their professional journey using advanced Artificial Intelligence and multi-agent systems.
 
-Unlike traditional career platforms, CareerPilot AI acts as a personalized AI career mentor that continuously analyzes:
+Unlike traditional career platforms, Margdarshak Sathi AI acts as a personalized AI career mentor that continuously analyzes:
 
 * Skills
 * Resume quality
