@@ -216,7 +216,7 @@ MongoDB Atlas + AI Memory Layer
 # 📂 Project Structure
 
 ```bash
-Career-Pilot/
+MargdarshakSathi/
 │
 ├── backend/
 │   ├── server.py
@@ -270,11 +270,11 @@ Optional:
 # 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/tarun-1313/Career-Pilot.git
+git clone https://github.com/tarun-1313/Margdarshak-Sathi.git
 ```
 
 ```bash
-cd Career-Pilot
+cd Margdarshak-Sathi
 ```
 
 ---
@@ -688,7 +688,7 @@ The app will open at http://localhost:3000
 ## 📂 Project Structure <a name="project-structure"></a>
 
 ```
-Career-Pilot-main/
+Margdarshak-Sathi-main/
 ├── backend/
 │   ├── server.py              # Main FastAPI server
 │   ├── gemini_client.py       # Gemini AI client
